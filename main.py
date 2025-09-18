@@ -40,10 +40,12 @@ def main():
     conn.commit()
 
     # Use a context manager for the driver
-    with webdriver.Firefox(service=Service(GeckoDriverManager().install()), options=firefox_options) as driver:
+    # service = Service(GeckoDriverManager().install()) # Use webdriver-manager
+    service = Service(executable_path='./geckodriver')     # Use local geckodriver binary
+    with webdriver.Firefox(service=service, options=firefox_options) as driver:
         wait = WebDriverWait(driver, 20)
-        
-        for i in range(12300000, 12600001):
+        # 12328685 - 12328707, 12328839 - 12600001 
+        for i in range(12328685, 12328708):
             if is_dlsu_id(i):
                 try:
                     # Reload the page for each ID to ensure a clean state. This is slow but reliable.
@@ -56,16 +58,33 @@ def main():
                     input_elem.send_keys(str(i))
                     input_elem.send_keys(Keys.ENTER)
                     
-                    # Wait for the result to appear and save whatever text is found.
-                    name_span = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "span.cell-value")))
-                    student_name = name_span.text.strip()
+                    # Wait for at least one result to be visible, then process all visible results
+                    name_spans = wait.until(EC.visibility_of_any_elements_located((By.CSS_SELECTOR, "span.cell-value")))
                     
+                    student_name = ""
+                    
+                    # Filter out known placeholder or irrelevant values
+                    unwanted_results = [
+                        "LAST NAME, FIRST NAME",
+                        "SUBMITTED (Hard Copy)",
+                        "SUBMITTED (Soft Copy)",
+                        "Maglagay ng value",
+                        str(i)
+                    ]
+
+                    # Find the first valid name from the visible elements
+                    for span in name_spans:
+                        name = span.text.strip()
+                        if name and name not in unwanted_results:
+                            student_name = name
+                            break
+
                     if student_name:
                         print(f"SUCCESS - {i}: {student_name}")
                         c.execute("INSERT INTO students (id, name) VALUES (?, ?)", (i, student_name))
                         conn.commit()
                     else:
-                        print(f"Ignoring ID {i}: Result was empty.")
+                        print(f"Ignoring ID {i}: No valid name found among visible results.")
 
                 except TimeoutException:
                     print(f"Ignoring ID {i}: No result element found (timeout).")
