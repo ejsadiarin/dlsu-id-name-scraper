@@ -45,7 +45,7 @@ def main():
     with webdriver.Firefox(service=service, options=firefox_options) as driver:
         wait = WebDriverWait(driver, 20)
         # 12328685 - 12328707, 12328839 - 12600001 
-        for i in range(12328685, 12328708):
+        for i in range(12328588, 12328635):
             if is_dlsu_id(i):
                 try:
                     # Reload the page for each ID to ensure a clean state. This is slow but reliable.
@@ -69,6 +69,8 @@ def main():
                         "SUBMITTED (Hard Copy)",
                         "SUBMITTED (Soft Copy)",
                         "Maglagay ng value",
+                        "ID NUMBER",
+                        "DTCF STATUS",
                         str(i)
                     ]
 
@@ -80,9 +82,25 @@ def main():
                             break
 
                     if student_name:
-                        print(f"SUCCESS - {i}: {student_name}")
-                        c.execute("INSERT INTO students (id, name) VALUES (?, ?)", (i, student_name))
-                        conn.commit()
+                        try:
+                            # Try to insert the new student record.
+                            c.execute("INSERT INTO students (id, name) VALUES (?, ?)", (i, student_name))
+                            conn.commit()
+                            print(f"SUCCESS - {i}: {student_name}")
+                        except sqlite3.IntegrityError:
+                            # This error means the ID already exists.
+                            # Check if the existing entry is an unwanted placeholder.
+                            c.execute("SELECT name FROM students WHERE id = ?", (i,))
+                            existing_name = c.fetchone()[0]
+                            
+                            if existing_name in unwanted_results:
+                                # If the stored name is a placeholder, update it with the new, valid name.
+                                print(f"UPDATING - {i}: Replacing '{existing_name}' with '{student_name}'")
+                                c.execute("UPDATE students SET name = ? WHERE id = ?", (student_name, i))
+                                conn.commit()
+                            else:
+                                # If the stored name is already valid, skip.
+                                print(f"SKIPPING - {i}: Already exists with a valid name.")
                     else:
                         print(f"Ignoring ID {i}: No valid name found among visible results.")
 
