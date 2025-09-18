@@ -8,6 +8,7 @@ from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import TimeoutException
 
 def is_dlsu_id(id: int) -> bool:
     """
@@ -66,17 +67,39 @@ def main():
                     input_elem.send_keys(str(i))
                     input_elem.send_keys(Keys.ENTER)
                     
-                    # Wait for the results to update.
-                    # Instead of a fixed sleep, wait for the name span to be visible.
-                    name_span = wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "span.cell-value")))
-                    student_name = name_span.text
-                    if student_name and student_name != 'No data':
-                        print(f"SUCCESS - {i}: {student_name}")
-                        c.execute("INSERT INTO students (id, name) VALUES (?, ?)", (i, student_name))
-                        conn.commit()
+                    # Wait for results and handle anomalies
+                    try:
+                        # Wait for at least one result cell to be visible before grabbing all of them.
+                        wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "span.cell-value")))
+                        
+                        # There can be multiple cells, one for name, one for status. Find them all.
+                        value_spans = driver.find_elements(By.CSS_SELECTOR, "span.cell-value")
+                        
+                        student_name = None
+                        
+                        # Iterate through the found spans to find something that looks like a name.
+                        for span in value_spans:
+                            text = span.text.strip()
+                            # A valid name should contain a comma and not be a known invalid value.
+                            if ',' in text and text.upper() != 'NO DATA':
+                                student_name = text
+                                break  # Stop once we've found the name
+
+                        if student_name:
+                            print(f"SUCCESS - {i}: {student_name}")
+                            c.execute("INSERT INTO students (id, name) VALUES (?, ?)", (i, student_name))
+                            conn.commit()
+                        else:
+                            # This case handles when spans are found, but none match the name criteria.
+                            all_texts = [span.text.strip() for span in value_spans]
+                            print(f"Ignoring ID {i}: No valid name found among results: {all_texts}")
+
+                    except TimeoutException:
+                        # This block catches cases where no 'span.cell-value' appears at all.
+                        print(f"Ignoring ID {i}: No result elements found. Likely not a current student.")
 
                 except Exception as e:
-                    print(f"An error occurred for ID {i}: {e}")
+                    print(f"An unhandled error occurred for ID {i}: {e}")
 
     conn.close()
 
