@@ -29,26 +29,27 @@ def is_dlsu_id(id: int) -> bool:
 def main():
     url = "https://lookerstudio.google.com/u/0/reporting/cab51826-f8bb-4aed-874e-6b69e61470df/page/p_l1yqh2seid"
 
-    # Set up headless Firefox
+    # headless Firefox
     firefox_options = Options()
     firefox_options.add_argument("--headless")
     
-    # Set up SQLite database
+    # SQLite database - maybe migrate to postgres?
     conn = sqlite3.connect('students.db')
     c = conn.cursor()
     c.execute('CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY, name TEXT)')
     conn.commit()
 
     # Use a context manager for the driver
-    # service = Service(GeckoDriverManager().install()) # Use webdriver-manager
-    service = Service(executable_path='./geckodriver')     # Use local geckodriver binary
+    # service = Service(GeckoDriverManager().install()) # Use webdriver-manager NOTE: can be rate limited if trying to run this script with multithreading or multiple worker processes
+    service = Service(executable_path='./geckodriver') # safer local option
     with webdriver.Firefox(service=service, options=firefox_options) as driver:
         wait = WebDriverWait(driver, 20)
         # 12328685 - 12328707, 12328839 - 12600001 
         for i in range(12328588, 12328635):
             if is_dlsu_id(i):
                 try:
-                    # Reload the page for each ID to ensure a clean state. This is slow but reliable.
+                    # Reload the page for each ID to ensure a clean state. 
+                    # PERF: This is slow but reliable.
                     driver.get(url)
                     
                     print(f"Processing ID: {i}")
@@ -63,7 +64,7 @@ def main():
                     
                     student_name = ""
                     
-                    # Filter out known placeholder or irrelevant values
+                    # Filter out placeholders
                     unwanted_results = [
                         "LAST NAME, FIRST NAME",
                         "SUBMITTED (Hard Copy)",
@@ -74,7 +75,7 @@ def main():
                         str(i)
                     ]
 
-                    # Find the first valid name from the visible elements
+                    # Then find valid name
                     for span in name_spans:
                         name = span.text.strip()
                         if name and name not in unwanted_results:
@@ -83,23 +84,20 @@ def main():
 
                     if student_name:
                         try:
-                            # Try to insert the new student record.
                             c.execute("INSERT INTO students (id, name) VALUES (?, ?)", (i, student_name))
                             conn.commit()
                             print(f"SUCCESS - {i}: {student_name}")
                         except sqlite3.IntegrityError:
-                            # This error means the ID already exists.
-                            # Check if the existing entry is an unwanted placeholder.
+                            # If students.id already exists, then we check if the existing entry is an unwanted placeholder.
                             c.execute("SELECT name FROM students WHERE id = ?", (i,))
                             existing_name = c.fetchone()[0]
                             
                             if existing_name in unwanted_results:
-                                # If the stored name is a placeholder, update it with the new, valid name.
+                                # if stored existing_name is a placeholder, then update with valid existing_name
                                 print(f"UPDATING - {i}: Replacing '{existing_name}' with '{student_name}'")
                                 c.execute("UPDATE students SET name = ? WHERE id = ?", (student_name, i))
                                 conn.commit()
                             else:
-                                # If the stored name is already valid, skip.
                                 print(f"SKIPPING - {i}: Already exists with a valid name.")
                     else:
                         print(f"Ignoring ID {i}: No valid name found among visible results.")
