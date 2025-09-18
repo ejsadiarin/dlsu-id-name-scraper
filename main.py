@@ -27,6 +27,15 @@ def is_dlsu_id(id: int) -> bool:
     return total % 11 == 0
 
 def main():
+    """
+    Scrapes lookerstudio (highly dynamic, client-side) populating input tag with a valid DLSU ID number to extract student name.
+    Tech: 
+        - Selenium for dynamic browser webscraping,
+        - geckodriver binary for headless firefox
+        - SQLite or PostgreSQL for database
+    How it works:
+        - 
+    """
     url = "https://lookerstudio.google.com/u/0/reporting/cab51826-f8bb-4aed-874e-6b69e61470df/page/p_l1yqh2seid"
 
     # headless Firefox
@@ -44,11 +53,18 @@ def main():
     service = Service(executable_path='./geckodriver') # safer local option
     with webdriver.Firefox(service=service, options=firefox_options) as driver:
         wait = WebDriverWait(driver, 20)
-        # 12328685 - 12328707, 12328839 - 12600001 
-        for i in range(12328588, 12328635):
+        # 12328685 - 12328707, 12328839 - 12600001  - 12303003 (cont.)
+        # 12328685 - 12328707, 12328839 - 12600001  - 12303003 (cont.)
+        # TODO:
+        # 12332496 - 12400001
+        # 12300000 - 12323004
+        # 12000000 - 12300001
+        # 12400000 - 12500001
+        # 12351598 - 12400001
+        for i in range(12300551, 12500001):
             if is_dlsu_id(i):
                 try:
-                    # Reload the page for each ID to ensure a clean state. 
+                    # reload the page for each ID to ensure a clean state. 
                     # PERF: This is slow but reliable.
                     driver.get(url)
                     
@@ -59,12 +75,12 @@ def main():
                     input_elem.send_keys(str(i))
                     input_elem.send_keys(Keys.ENTER)
                     
-                    # Wait for at least one result to be visible, then process all visible results
+                    # there are multiple span tags with cell-value class attribute, so we filter out ones we don't want
                     name_spans = wait.until(EC.visibility_of_any_elements_located((By.CSS_SELECTOR, "span.cell-value")))
                     
                     student_name = ""
                     
-                    # Filter out placeholders
+                    # filter out placeholders
                     unwanted_results = [
                         "LAST NAME, FIRST NAME",
                         "SUBMITTED (Hard Copy)",
@@ -75,9 +91,10 @@ def main():
                         str(i)
                     ]
 
-                    # Then find valid name
+                    # then find valid name
                     for span in name_spans:
                         name = span.text.strip()
+                        print(name)
                         if name and name not in unwanted_results:
                             student_name = name
                             break
