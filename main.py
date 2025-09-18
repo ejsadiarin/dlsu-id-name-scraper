@@ -54,49 +54,55 @@ def main():
         wait = WebDriverWait(driver, 20)
         
         print("Loading page once...")
-        driver.get(url) # Load the page once before starting the loop
+        driver.get(url)
+        
+        # Find the input element once after the initial page load.
+        input_elem = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[placeholder='Maglagay ng value']")))
 
-        for i in range(11901764, 12600001):
+        for i in range(11901632, 12600001):
             if is_dlsu_id(i):
                 try:
-                    # Wait for the input field to be ready
                     print(f"Processing ID: {i}")
-                    input_elem = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[placeholder='Maglagay ng value']")))
-                    
-                    # Clear the input field, enter the ID, and press Enter
+
+                    # Get a reference to the current results before triggering a new search
+                    old_results = driver.find_elements(By.CSS_SELECTOR, "span.cell-value")
+
+                    # Input the new ID
                     input_elem.clear()
                     input_elem.send_keys(str(i))
                     input_elem.send_keys(Keys.ENTER)
+
+                    # Wait for the old results to become stale. This confirms the page has started updating.
+                    if old_results:
+                        try:
+                            wait.until(EC.staleness_of(old_results[0]))
+                        except TimeoutException:
+                            # This can happen if the page doesn't update. We'll log a warning
+                            # and let the subsequent wait handle the timeout.
+                            print(f"Warning: Page state did not change for ID {i}.")
                     
-                    # Wait for results and handle anomalies
+                    # Now, wait for the new results to appear and process them
                     try:
-                        # Wait for at least one result cell to be visible before grabbing all of them.
                         wait.until(EC.visibility_of_element_located((By.CSS_SELECTOR, "span.cell-value")))
-                        
-                        # There can be multiple cells, one for name, one for status. Find them all.
                         value_spans = driver.find_elements(By.CSS_SELECTOR, "span.cell-value")
                         
                         student_name = None
                         
-                        # Iterate through the found spans to find something that looks like a name.
                         for span in value_spans:
                             text = span.text.strip()
-                            # A valid name should contain a comma and not be a known invalid value.
                             if ',' in text and text.upper() != 'NO DATA':
                                 student_name = text
-                                break  # Stop once we've found the name
+                                break
 
                         if student_name:
                             print(f"SUCCESS - {i}: {student_name}")
                             c.execute("INSERT INTO students (id, name) VALUES (?, ?)", (i, student_name))
                             conn.commit()
                         else:
-                            # This case handles when spans are found, but none match the name criteria.
                             all_texts = [span.text.strip() for span in value_spans]
                             print(f"Ignoring ID {i}: No valid name found among results: {all_texts}")
 
                     except TimeoutException:
-                        # This block catches cases where no 'span.cell-value' appears at all.
                         print(f"Ignoring ID {i}: No result elements found. Likely not a current student.")
 
                 except Exception as e:
