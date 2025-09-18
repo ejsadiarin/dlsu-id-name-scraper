@@ -53,11 +53,12 @@ def main():
     with webdriver.Firefox(service=Service(GeckoDriverManager().install()), options=firefox_options) as driver:
         wait = WebDriverWait(driver, 20)
         
-        for i in range(11900000, 12600001):
+        print("Loading page once...")
+        driver.get(url) # Load the page once before starting the loop
+
+        for i in range(11901764, 12600001):
             if is_dlsu_id(i):
                 try:
-                    driver.get(url)
-                    
                     # Wait for the input field to be ready
                     print(f"Processing ID: {i}")
                     input_elem = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[placeholder='Maglagay ng value']")))
