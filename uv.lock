@@ -85,7 +85,7 @@ wheels = [
 ]
 
 [[package]]
-name = "dlsu-id-name-mapper"
+name = "dlsu-id-name-scraper"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

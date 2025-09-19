@@ -29,12 +29,6 @@ def is_dlsu_id(id: int) -> bool:
 def main():
     """
     Scrapes lookerstudio (highly dynamic, client-side) populating input tag with a valid DLSU ID number to extract student name.
-    Tech: 
-        - Selenium for dynamic browser webscraping,
-        - geckodriver binary for headless firefox
-        - SQLite or PostgreSQL for database
-    How it works:
-        - 
     """
     url = "https://lookerstudio.google.com/u/0/reporting/cab51826-f8bb-4aed-874e-6b69e61470df/page/p_l1yqh2seid"
 
@@ -61,10 +55,12 @@ def main():
         # 12000000 - 12300001
         # 12400000 - 12500001
         # 12351598 - 12400001
-        for i in range(12300551, 12500001):
+        # 12306436, 12307238 - get this
+        # done: 12305928 - 12351768
+        for i in range(12387886, 12500001):
             if is_dlsu_id(i):
                 try:
-                    # reload the page for each ID to ensure a clean state. 
+                    # reload the page for each ID to ensure a clean state
                     # PERF: This is slow but reliable.
                     driver.get(url)
                     
@@ -74,11 +70,6 @@ def main():
                     input_elem.clear()
                     input_elem.send_keys(str(i))
                     input_elem.send_keys(Keys.ENTER)
-                    
-                    # there are multiple span tags with cell-value class attribute, so we filter out ones we don't want
-                    name_spans = wait.until(EC.visibility_of_any_elements_located((By.CSS_SELECTOR, "span.cell-value")))
-                    
-                    student_name = ""
                     
                     # filter out placeholders
                     unwanted_results = [
@@ -91,13 +82,17 @@ def main():
                         str(i)
                     ]
 
-                    # then find valid name
-                    for span in name_spans:
-                        name = span.text.strip()
-                        print(name)
-                        if name and name not in unwanted_results:
-                            student_name = name
-                            break
+                    # NOTE: Wait until an element appears that contains a valid name, not just a placeholder
+                    # This prevents a race condition where the script grabs headers before the real data loads
+                    valid_spans = wait.until(
+                        lambda driver: [
+                            span for span in driver.find_elements(By.CSS_SELECTOR, "span.cell-value")
+                            if span.text.strip() and span.text.strip() not in unwanted_results
+                        ]
+                    )
+                    
+                    student_name = valid_spans[0].text.strip() if valid_spans else ""
+
 
                     if student_name:
                         try:
