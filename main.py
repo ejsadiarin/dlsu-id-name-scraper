@@ -56,8 +56,8 @@ def main():
         # 12400000 - 12500001
         # 12351598 - 12400001
         # 12306436, 12307238 - get this
-        # done: 12305928 - 12351768
-        for i in range(12387886, 12500001):
+        # done: 12305928 - 12351768 - 12387886 (1235XXXX, 1238XXXX are mostly empty)
+        for i in range(12390000, 12500001):
             if is_dlsu_id(i):
                 try:
                     # reload the page for each ID to ensure a clean state
