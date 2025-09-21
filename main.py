@@ -1,4 +1,4 @@
-import time
+from datetime import datetime
 import sqlite3
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
@@ -56,12 +56,15 @@ def main():
         # 12400000 - 12500001
         # 12351598 - 12400001
         # 12480000 - 12495298 (mostly empty)
-        for i in range(12221538, 12300001):
+        for i in range(12228133, 12300001):
             if is_dlsu_id(i):
                 try:
                     # reload the page for each ID to ensure a clean state
                     # PERF: This is slow but reliable.
                     driver.get(url)
+
+                    time = datetime.now().isoformat()
+                    print(f"---\n{time}")
                     
                     print(f"Processing ID: {i}")
                     input_elem = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "input[placeholder='Maglagay ng value']")))
@@ -80,6 +83,7 @@ def main():
                         "DTCF STATUS",
                         "not in the list",
                         "NOT SUBMITTED",
+                        "Submitted",
                         str(i)
                     ]
 
