@@ -56,7 +56,8 @@ def main():
         # 12400000 - 12500001
         # 12351598 - 12400001
         # 12480000 - 12495298 (mostly empty)
-        for i in range(12228133, 12300001):
+        # 464K - 12228354 20250921-1606
+        for i in range(12228354, 12300001):
             if is_dlsu_id(i):
                 try:
                     # reload the page for each ID to ensure a clean state
