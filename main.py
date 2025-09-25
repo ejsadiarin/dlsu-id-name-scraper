@@ -51,15 +51,15 @@ def main():
         wait = WebDriverWait(driver, 20)
         # 12328685 - 12328707, 12328839 - 12600001  - 12303003 (cont.)
         # 12328685 - 12328707, 12328839 - 12600001  - 12303003 (cont.)
-        missing_id_3_query = c.execute(
-            "select * from students where name like lower('%submitted%') or name like 'NOT%' or name like '%LAST NAME%' or name like lower('%dtcf%') or name like lower('id number') or name = ''"
-        )
-        missing_id_3 = missing_id_3_query.fetchall()
-
-        for row in missing_id_3:
-            student_id = row[0]
-            # for i in range(12180000, 12600001):
-            if is_dlsu_id(student_id):
+        # missing_id_3_query = c.execute(
+        #     "select * from students where name like lower('%submitted%') or name like 'NOT%' or name like '%LAST NAME%' or name like lower('%dtcf%') or name like lower('id number') or name = ''"
+        # )
+        # missing_id_3 = missing_id_3_query.fetchall()
+        #
+        # for row in missing_id_3:
+        #     i = row[0]
+        for i in range(12000000, 12600001):
+            if is_dlsu_id(i):
                 try:
                     # reload the page for each ID to ensure a clean state
                     # PERF: This is slow but reliable.
@@ -68,7 +68,7 @@ def main():
                     time = datetime.now().isoformat()
                     print(f"---\n{time}")
 
-                    print(f"Processing ID: {student_id}")
+                    print(f"Processing ID: {i}")
                     input_elem = wait.until(
                         EC.element_to_be_clickable(
                             (By.CSS_SELECTOR, "input[placeholder='Maglagay ng value']")
@@ -76,7 +76,7 @@ def main():
                     )
 
                     input_elem.clear()
-                    input_elem.send_keys(str(student_id))
+                    input_elem.send_keys(str(i))
                     input_elem.send_keys(Keys.ENTER)
 
                     # filter out placeholders
@@ -91,7 +91,7 @@ def main():
                         "NOT SUBMITTED",
                         "Submitted",
                         "not found",
-                        str(student_id),
+                        str(i),
                     ]
 
                     # NOTE: Wait until an element appears that contains a valid name, not just a placeholder
@@ -113,42 +113,38 @@ def main():
                         try:
                             c.execute(
                                 "INSERT INTO students (id, name) VALUES (?, ?)",
-                                (student_id, student_name),
+                                (i, student_name),
                             )
                             conn.commit()
-                            print(f"SUCCESS - {student_id}: {student_name}")
+                            print(f"SUCCESS - {i}: {student_name}")
                         except sqlite3.IntegrityError:
                             # If students.id already exists, then we check if the existing entry is an unwanted placeholder.
-                            c.execute(
-                                "SELECT name FROM students WHERE id = ?", (student_id,)
-                            )
+                            c.execute("SELECT name FROM students WHERE id = ?", (i,))
                             existing_name = c.fetchone()[0]
 
                             if existing_name in unwanted_results:
                                 # if stored existing_name is a placeholder, then update with valid existing_name
                                 print(
-                                    f"UPDATING - {student_id}: Replacing '{existing_name}' with '{student_name}'"
+                                    f"UPDATING - {i}: Replacing '{existing_name}' with '{student_name}'"
                                 )
                                 c.execute(
                                     "UPDATE students SET name = ? WHERE id = ?",
-                                    (student_name, student_id),
+                                    (student_name, i),
                                 )
                                 conn.commit()
                             else:
                                 print(
-                                    f"SKIPPING - {student_id}: Already exists with a valid name."
+                                    f"SKIPPING - {i}: Already exists with a valid name."
                                 )
                     else:
                         print(
-                            f"Ignoring ID {student_id}: No valid name found among visible results."
+                            f"Ignoring ID {i}: No valid name found among visible results."
                         )
 
                 except TimeoutException:
-                    print(
-                        f"Ignoring ID {student_id}: No result element found (timeout)."
-                    )
+                    print(f"Ignoring ID {i}: No result element found (timeout).")
                 except Exception as e:
-                    print(f"An unhandled error occurred for ID {student_id}: {e}")
+                    print(f"An unhandled error occurred for ID {i}: {e}")
 
     conn.close()
 
